@@ -112,6 +112,9 @@ export function useBuiltInBankSyncProviders({
   const [isAkahuSetupComplete, setIsAkahuSetupComplete] = useState<
     boolean | null
   >(null);
+  const [isRedbarkSetupComplete, setIsRedbarkSetupComplete] = useState<
+    boolean | null
+  >(null);
   const [loadingSimpleFinAccounts, setLoadingSimpleFinAccounts] =
     useState(false);
   const [loadingAkahuAccounts, setLoadingAkahuAccounts] = useState(false);
@@ -598,6 +601,7 @@ export function useBuiltInBankSyncProviders({
     pluggyai: Boolean(isPluggyAiSetupComplete),
     enableBanking: Boolean(isEnableBankingSetupComplete),
     akahu: Boolean(isAkahuSetupComplete),
+    redbark: Boolean(isRedbarkSetupComplete),
   } satisfies Record<BankSyncProviders, boolean>;
 
   const providers = useMemo<BuiltInBankSyncProviderState[]>(() => {
