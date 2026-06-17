@@ -391,6 +391,68 @@ async function downloadEnableBankingTransactions(
   };
 }
 
+async function downloadRedbarkTransactions(
+  acctId: string,
+  bankId: string,
+  since: string,
+  includeBalance = true,
+) {
+  const userToken = await asyncStorage.getItem('user-token');
+  if (!userToken) return;
+
+  logger.log('Pulling transactions from Redbark');
+
+  const res = await post(
+    getServer().REDBARK_SERVER + '/transactions',
+    {
+      accountId: acctId,
+      bankId,
+      startDate: since,
+      includeBalance,
+    },
+    { 'X-ACTUAL-TOKEN': userToken },
+    60000,
+  );
+
+  if (res.error_code) {
+    const errorDetails = {
+      error_type: res.error_type,
+      error_code: res.error_code,
+      reason: res.reason,
+    };
+
+    switch (res.error_code) {
+      case 'INVALID_ACCESS_TOKEN':
+        throw BankSyncError(
+          'INVALID_ACCESS_TOKEN',
+          errorDetails.error_code,
+          errorDetails,
+        );
+      case 'SERVER_DOWN':
+        throw BankSyncError(
+          'ACCOUNT_NEEDS_ATTENTION',
+          errorDetails.error_code,
+          errorDetails,
+        );
+      default:
+        throw BankSyncError(
+          'UNKNOWN_ERROR',
+          errorDetails.error_code,
+          errorDetails,
+        );
+    }
+  }
+
+  const retVal = {
+    transactions: res.transactions.all,
+    accountBalance: res.balances,
+    startingBalance: res.startingBalance,
+  };
+
+  logger.log('Response:', retVal);
+  return retVal;
+}
+
 async function resolvePayee(trans, payeeName, payeesToCreate) {
   if (trans.payee == null && payeeName) {
     // First check our registry of new payees (to avoid a db access)
@@ -1095,6 +1157,14 @@ async function processBankSyncDownload(
         currentBalance,
       );
       balanceToUse = Math.round(previousBalance);
+    } else if (acctRow.account_sync_source === 'redbark') {
+      const currentBalance = download.startingBalance;
+      const previousBalance = transactions.reduce(
+        (total, trans) =>
+          total - amountToInteger(trans.transactionAmount.amount),
+        currentBalance,
+      );
+      balanceToUse = Math.round(previousBalance);
     }
 
     const oldestTransaction = transactions[transactions.length - 1];
@@ -1196,6 +1266,13 @@ export async function syncAccount(
     );
   } else if (acctRow.account_sync_source === 'enableBanking') {
     download = await downloadEnableBankingTransactions(acctId, syncStartDate);
+  } else if (acctRow.account_sync_source === 'redbark') {
+    download = await downloadRedbarkTransactions(
+      acctId,
+      bankId,
+      syncStartDate,
+      newAccount,
+    );
   } else {
     throw new Error(
       `Unrecognized bank-sync provider: ${acctRow.account_sync_source}`,
