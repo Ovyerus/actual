@@ -17,6 +17,7 @@ import type {
   SyncServerEnableBankingAccount,
   SyncServerGoCardlessAccount,
   SyncServerPluggyAiAccount,
+  SyncServerRedbarkAccount,
   SyncServerSimpleFinAccount,
 } from '@actual-app/core/types/models';
 import { format as formatDate, parseISO } from 'date-fns';
@@ -26,6 +27,7 @@ import {
   useLinkAccountEnableBankingMutation,
   useLinkAccountMutation,
   useLinkAccountPluggyAiMutation,
+  useLinkAccountRedbarkMutation,
   useLinkAccountSimpleFinMutation,
   useUnlinkAccountMutation,
 } from '#accounts';
@@ -103,6 +105,12 @@ export type SelectLinkedAccountsModalProps =
       externalAccounts: SyncServerAkahuAccount[];
       syncSource: 'akahu';
       upgradingAccountId?: string;
+    }
+  | {
+      requisitionId?: undefined;
+      externalAccounts: SyncServerRedbarkAccount[];
+      syncSource: 'redbark';
+      upgradingAccountId?: string;
     };
 
 export function SelectLinkedAccountsModal({
@@ -149,6 +157,12 @@ export function SelectLinkedAccountsModal({
           return {
             syncSource: 'enableBanking',
             externalAccounts: toSort as SyncServerEnableBankingAccount[],
+            upgradingAccountId,
+          };
+        case 'redbark':
+          return {
+            syncSource: 'redbark',
+            externalAccounts: toSort as SyncServerRedbarkAccount[],
             upgradingAccountId,
           };
         default:
@@ -222,6 +236,7 @@ export function SelectLinkedAccountsModal({
   const linkAccountPluggyAi = useLinkAccountPluggyAiMutation();
   const linkAccountAkahu = useLinkAccountAkahuMutation();
   const linkAccountEnableBanking = useLinkAccountEnableBankingMutation();
+  const linkAccountRedbark = useLinkAccountRedbarkMutation();
 
   async function onNext() {
     const chosenLocalAccountIds = Object.values(chosenAccounts);
@@ -319,6 +334,21 @@ export function SelectLinkedAccountsModal({
             startingDate,
             startingBalance,
           });
+        } else if (propsWithSortedExternalAccounts.syncSource === 'redbark') {
+          linkAccountRedbark.mutate({
+            externalAccount:
+              propsWithSortedExternalAccounts.externalAccounts[
+                externalAccountIndex
+              ],
+            upgradingId:
+              chosenLocalAccountId !== addOnBudgetAccountOption.id &&
+              chosenLocalAccountId !== addOffBudgetAccountOption.id
+                ? chosenLocalAccountId
+                : undefined,
+            offBudget,
+            startingDate,
+            startingBalance,
+          });
         } else {
           linkAccount.mutate({
             requisitionId: propsWithSortedExternalAccounts.requisitionId,
@@ -351,7 +381,8 @@ export function SelectLinkedAccountsModal({
       | SyncServerGoCardlessAccount
       | SyncServerSimpleFinAccount
       | SyncServerPluggyAiAccount
-      | SyncServerAkahuAccount,
+      | SyncServerAkahuAccount
+      | SyncServerRedbarkAccount,
     localAccountId: string | null | undefined,
   ) {
     setChosenAccounts(accounts => {
@@ -577,7 +608,8 @@ type ExternalAccount =
   | SyncServerSimpleFinAccount
   | SyncServerPluggyAiAccount
   | SyncServerAkahuAccount
-  | SyncServerEnableBankingAccount;
+  | SyncServerEnableBankingAccount
+  | SyncServerRedbarkAccount;
 
 type StartingBalanceInfo = {
   date: string;
@@ -816,7 +848,8 @@ function getInstitutionName(
     | SyncServerGoCardlessAccount
     | SyncServerSimpleFinAccount
     | SyncServerPluggyAiAccount
-    | SyncServerEnableBankingAccount,
+    | SyncServerEnableBankingAccount
+    | SyncServerRedbarkAccount,
 ) {
   if (typeof externalAccount?.institution === 'string') {
     return externalAccount?.institution ?? '';
