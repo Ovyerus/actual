@@ -29,4 +29,5 @@ export type SyncServerRedbarkTransaction = {
   transactionAmount: SyncServerRedbarkAmount;
   transactionId: string;
   booked: boolean;
+  category?: string;
 };

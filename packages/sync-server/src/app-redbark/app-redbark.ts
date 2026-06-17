@@ -8,6 +8,7 @@ import {
 } from '#util/middlewares';
 
 import {
+  decimalToInteger,
   fetchAllPages,
   normalizeRedbarkAccount,
   normalizeRedbarkTransaction,
@@ -58,7 +59,9 @@ app.post(
     }
 
     if (!response.ok) {
-      const body = await response.json().catch(() => ({})) as { error?: { message?: string } };
+      const body = (await response.json().catch(() => ({}))) as {
+        error?: { message?: string };
+      };
       res.send({
         status: 'ok',
         data: {
@@ -94,9 +97,10 @@ app.post(
       return;
     }
 
-    const connections: RedbarkConnection[] = await redbarkFetch<{
-      data: RedbarkConnection[];
-    }>(apiKey, BASE_URL, '/v1/connections').then(r => r.data);
+    const connections: RedbarkConnection[] =
+      await redbarkFetch<{
+        data: RedbarkConnection[];
+      }>(apiKey, BASE_URL, '/v1/connections').then(r => r.data);
 
     const bankingConnectionIds = new Set(
       connections.filter(c => c.category === 'banking').map(c => c.id),
@@ -224,9 +228,13 @@ app.post(
     res.send({
       status: 'ok',
       data: {
-        balances: [],
-        startingBalance: 0,
-        transactions: { all: [], booked: [], pending: [] },
+        balances,
+        startingBalance,
+        transactions: {
+          all: normalizedTransactions,
+          booked: normalizedTransactions.filter(t => t.booked),
+          pending: normalizedTransactions.filter(t => !t.booked),
+        },
       },
     });
   }),

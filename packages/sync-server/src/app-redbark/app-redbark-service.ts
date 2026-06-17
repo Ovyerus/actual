@@ -136,6 +136,24 @@ export function normalizeRedbarkAccount(
   };
 }
 
+export function normalizeRedbarkTransaction(
+  transaction: RedbarkTransaction,
+  accountCurrency: string,
+) {
+  return {
+    date: transaction.date,
+    payeeName: transaction.merchantName || transaction.description,
+    notes: transaction.description,
+    transactionAmount: {
+      amount: transaction.amount,
+      currency: accountCurrency,
+    },
+    transactionId: transaction.id,
+    booked: transaction.status === 'posted',
+    category: transaction.category ?? undefined,
+  };
+}
+
 export function decimalToInteger(
   amount: string | null | undefined,
 ): number | null {
