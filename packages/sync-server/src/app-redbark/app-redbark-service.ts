@@ -115,6 +115,27 @@ export async function fetchAllPages<T>(
   return results;
 }
 
+export function normalizeRedbarkAccount(
+  account: RedbarkAccount,
+  balance: RedbarkBalance | undefined,
+) {
+  const currentBalance = decimalToInteger(balance?.currentBalance);
+  const availableBalance = decimalToInteger(balance?.availableBalance);
+
+  return {
+    account_id: account.id,
+    connectionId: account.connectionId,
+    name: account.name,
+    official_name: account.name,
+    institution: account.institutionName,
+    mask: account.accountNumber,
+    balance: currentBalance ?? 0,
+    balance_current: currentBalance,
+    balance_available: availableBalance,
+    currency: account.currency,
+  };
+}
+
 export function decimalToInteger(
   amount: string | null | undefined,
 ): number | null {

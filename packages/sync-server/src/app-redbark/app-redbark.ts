@@ -8,6 +8,7 @@ import {
 } from '#util/middlewares';
 
 import {
+  fetchAllPages,
   normalizeRedbarkAccount,
   normalizeRedbarkTransaction,
   redbarkFetch,
@@ -130,7 +131,7 @@ app.post(
 
     res.send({
       status: 'ok',
-      data: { accounts: [] },
+      data: { accounts: normalizedAccounts },
     });
   }),
 );
