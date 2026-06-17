@@ -5,6 +5,7 @@ import { send } from '@actual-app/core/platform/client/connection';
 import type {
   AccountEntity,
   BankSyncProviders,
+  SyncServerRedbarkAccount,
 } from '@actual-app/core/types/models';
 import type { SyncServerSimpleFinAccount } from '@actual-app/core/types/models/simplefin';
 
@@ -18,6 +19,7 @@ import { useEnableBankingStatus } from '#hooks/useEnableBankingStatus';
 import { useFeatureFlag } from '#hooks/useFeatureFlag';
 import { useGoCardlessStatus } from '#hooks/useGoCardlessStatus';
 import { usePluggyAiStatus } from '#hooks/usePluggyAiStatus';
+import { useRedbarkStatus } from '#hooks/useRedbarkStatus';
 import { useSimpleFinStatus } from '#hooks/useSimpleFinStatus';
 import { useSyncServerStatus } from '#hooks/useSyncServerStatus';
 import { pushModal } from '#modals/modalsSlice';
@@ -118,15 +120,22 @@ export function useBuiltInBankSyncProviders({
   const [loadingSimpleFinAccounts, setLoadingSimpleFinAccounts] =
     useState(false);
   const [loadingAkahuAccounts, setLoadingAkahuAccounts] = useState(false);
+  const [loadingRedbarkAccounts, setLoadingRedbarkAccounts] = useState(false);
 
   const enableBankingEnabled = useFeatureFlag('enableBanking');
   const akahuEnabled = useFeatureFlag('akahuBankSync');
+  const redbarkEnabled = useFeatureFlag('redbarkBankSync');
   const { configuredGoCardless } = useGoCardlessStatus();
   const { configuredSimpleFin } = useSimpleFinStatus();
   const { configuredPluggyAi } = usePluggyAiStatus();
   const { configuredAkahu } = useAkahuStatus(akahuEnabled);
   const { configuredEnableBanking, isLoading: isEnableBankingLoading } =
     useEnableBankingStatus(enableBankingEnabled);
+  const { configuredRedbark } = useRedbarkStatus(redbarkEnabled);
+
+  useEffect(() => {
+    setIsRedbarkSetupComplete(configuredRedbark);
+  }, [configuredRedbark]);
 
   useEffect(() => {
     setIsGoCardlessSetupComplete(configuredGoCardless);
@@ -207,6 +216,19 @@ export function useBuiltInBankSyncProviders({
           name: 'akahu-init',
           options: {
             onSuccess: () => setIsAkahuSetupComplete(true),
+          },
+        },
+      }),
+    );
+  }, [dispatch]);
+
+  const onRedbarkInit = useCallback(() => {
+    dispatch(
+      pushModal({
+        modal: {
+          name: 'redbark-init',
+          options: {
+            onSuccess: () => setIsRedbarkSetupComplete(true),
           },
         },
       }),
@@ -346,6 +368,21 @@ export function useBuiltInBankSyncProviders({
     } catch (error) {
       console.log(error);
       notifyResetFailure('Akahu', error);
+    }
+  }, [notifyResetFailure]);
+
+  const onRedbarkReset = useCallback(async () => {
+    try {
+      await ensureSuccessResponse(
+        await send('secret-set', {
+          name: 'redbark_apiKey',
+          value: null,
+        }),
+        'Failed to clear Redbark API key',
+      );
+      setIsRedbarkSetupComplete(false);
+    } catch (error) {
+      notifyResetFailure('Redbark', error);
     }
   }, [notifyResetFailure]);
 
@@ -595,6 +632,66 @@ export function useBuiltInBankSyncProviders({
     t,
   ]);
 
+  const onConnectRedbark = useCallback(async () => {
+    if (!isRedbarkSetupComplete) {
+      onRedbarkInit();
+      return;
+    }
+
+    if (loadingRedbarkAccounts) {
+      return;
+    }
+
+    setLoadingRedbarkAccounts(true);
+
+    try {
+      const results = await send('redbark-accounts');
+      if (results.error_code) {
+        throw new Error(results.reason);
+      }
+      if ('error' in results && results.error) {
+        throw new Error(results.reason || results.error);
+      }
+
+      const externalAccounts: SyncServerRedbarkAccount[] =
+        results.accounts ?? [];
+
+      dispatch(
+        pushModal({
+          modal: {
+            name: 'select-linked-accounts',
+            options: {
+              externalAccounts,
+              syncSource: 'redbark',
+              upgradingAccountId,
+            },
+          },
+        }),
+      );
+    } catch (error) {
+      dispatch(
+        addNotification({
+          notification: {
+            type: 'error',
+            title: t('Error when trying to contact Redbark'),
+            message: error instanceof Error ? error.message : String(error),
+            timeout: 5000,
+          },
+        }),
+      );
+      onRedbarkInit();
+    } finally {
+      setLoadingRedbarkAccounts(false);
+    }
+  }, [
+    dispatch,
+    isRedbarkSetupComplete,
+    loadingRedbarkAccounts,
+    onRedbarkInit,
+    t,
+    upgradingAccountId,
+  ]);
+
   const configuredProviders = {
     goCardless: Boolean(isGoCardlessSetupComplete),
     simpleFin: Boolean(isSimpleFinSetupComplete),
@@ -684,6 +781,22 @@ export function useBuiltInBankSyncProviders({
       });
     }
 
+    if (redbarkEnabled) {
+      baseProviders.push({
+        id: 'redbark',
+        displayName: 'Redbark',
+        description: t(
+          'Link an Australian or New Zealand bank account to automatically download transactions.',
+        ),
+        isConfigured: configuredProviders.redbark,
+        canConfigure: canConfigureProviders,
+        isLoading: loadingRedbarkAccounts,
+        onConfigure: onRedbarkInit,
+        onLink: onConnectRedbark,
+        onReset: onRedbarkReset,
+      });
+    }
+
     return baseProviders;
   }, [
     canConfigureProviders,
@@ -692,16 +805,20 @@ export function useBuiltInBankSyncProviders({
     configuredProviders.pluggyai,
     configuredProviders.simpleFin,
     configuredProviders.akahu,
+    configuredProviders.redbark,
     enableBankingEnabled,
     akahuEnabled,
+    redbarkEnabled,
     isEnableBankingLoading,
     loadingSimpleFinAccounts,
     loadingAkahuAccounts,
+    loadingRedbarkAccounts,
     onConnectAkahu,
     onConnectEnableBanking,
     onConnectGoCardless,
     onConnectPluggyAi,
     onConnectSimpleFin,
+    onConnectRedbark,
     onAkahuInit,
     onAkahuReset,
     onEnableBankingInit,
@@ -712,6 +829,8 @@ export function useBuiltInBankSyncProviders({
     onPluggyAiReset,
     onSimpleFinInit,
     onSimpleFinReset,
+    onRedbarkInit,
+    onRedbarkReset,
     t,
   ]);
 
