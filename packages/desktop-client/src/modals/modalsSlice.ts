@@ -136,6 +136,12 @@ export type Modal =
       };
     }
   | {
+      name: 'redbark-init';
+      options: {
+        onSuccess: () => void;
+      };
+    }
+  | {
       name: 'enablebanking-init';
       options: {
         onSuccess: () => void;

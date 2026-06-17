@@ -71,6 +71,7 @@ import { OutOfSyncMigrationsModal } from './modals/OutOfSyncMigrationsModal';
 import { PasswordEnableModal } from './modals/PasswordEnableModal';
 import { PayeeAutocompleteModal } from './modals/PayeeAutocompleteModal';
 import { PluggyAiInitialiseModal } from './modals/PluggyAiInitialiseModal';
+import { RedbarkInitialiseModal } from './modals/RedbarkInitialiseModal';
 import { ScheduledTransactionMenuModal } from './modals/ScheduledTransactionMenuModal';
 import { SelectLinkedAccountsModal } from './modals/SelectLinkedAccountsModal';
 import { SimpleFinInitialiseModal } from './modals/SimpleFinInitialiseModal';
@@ -183,6 +184,9 @@ export function Modals() {
 
         case 'gocardless-init':
           return <GoCardlessInitialiseModal key={key} {...modal.options} />;
+
+        case 'redbark-init':
+          return <RedbarkInitialiseModal key={key} {...modal.options} />;
 
         case 'simplefin-init':
           return <SimpleFinInitialiseModal key={key} {...modal.options} />;
